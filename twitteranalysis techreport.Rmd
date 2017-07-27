@@ -1,0 +1,233 @@
+---
+title: "Twitter Analysis Technical Report"
+author: "vivek"
+date: "July 27, 2017"
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Aim: We intend to search for last 5000 tweets , which have referred in one way or another to President Trump and will try to objectively find the sentiments keeping our biases out. Let us see what the sentiments are :
+
+we will load the packages required for this analysis as these have already been installed on local machine.
+
+```{r load packages}
+library(twitteR)
+library(tm)
+library(tidytext)
+library(ggplot2)
+library(stringi)
+library(stringr)
+library(wordcloud)
+library(rebus)
+```
+we will now create a connection to twitter :
+```{r connection to twitter}
+source("c:\\vik\\r\\r\\TwitterAnalysis\\twitterconnection.r")
+
+```
+
+Our Analysis will focus on the following :
+
+I. Analysis of the user i.e. we will analyse the twitter handle "POTUS"" used by president Trump initially for when was the acoount setup, how many tweets has he sent as of now, how many retweets has he done, how many friends he has, which locations are the tweets done from and other user related data analysis :
+
+```{r}
+tw_user_potus<-getUser(user = "POTUS")
+
+```
+ Following are few of the fields available to use:
+ 
+```{r}
+class(tw_user_potus)
+str(tw_user_potus)
+
+```
+
+Following us the little insight that we got from the user account information :
+
+1. Description on this account is : `r tw_user_potus$description `
+2. Status Counts are : `r tw_user_potus$getStatusesCount()`
+3. Follower Counts is : `r tw_user_potus$getFollowersCount()`
+4. Friends Counts are : `r tw_user_potus$getFriendsCount()`
+5. Account was Created on  : `r tw_user_potus$getCreated()`
+6. favorite counts are  : `r tw_user_potus$favoritesCount`
+7. Last Status is : : 
+```{r last status}
+tw_user_potus$lastStatus
+```
+8. Last Status is Retweeted : `r tw_user_potus$lastStatus$retweetCount` times
+9. The no. of lists he is in : `r tw_user_potus$getListedCount()`
+
+II . Twitter Analysis and word Cloud :
+
+Our second task is to get the insight into two kinds of twitter messages. First is the analysis of twitter messages in which "trump" word appears i.e the insights of what people are tweeting with word "Trump" in it . Second will be tweets that are sent by official " POTUS" account. This we are doing to find out that the sentiments conveyed by Trump and sentiments of the people are in sync or not.
+
+II-a. 
+Collection of last 5000 tweets about "trump"
+```{r trump search}
+tw_trump_search <- searchTwitter(searchString = "trump",n = 5000,lang = "en")
+head(tw_trump_search)
+```
+
+II-b. 
+Collection of last 5000 tweets from handle "POTUS"
+```{r potus search}
+tw_POTUS_search <- searchTwitter(searchString = "@potus",n = 5000,lang = "en")
+head(tw_POTUS_search)
+tail(tw_POTUS_search)
+```
+
+III We will define few functions at this stage to clean up the teweets and will just focus on the text of the tweets
+
+cleantweets function: 
+Let us first strip the retweets(both manual and modified retweets are removed):
+
+
+```{r}
+tw_trump_search<-strip_retweets(tw_trump_search, strip_manual=TRUE, strip_mt=TRUE)
+tw_POTUS_search<-strip_retweets(tw_POTUS_search, strip_manual=TRUE, strip_mt=TRUE)
+
+```
+
+Let's create dataframes of the tweets :
+
+```{r}
+tw_POTUS_search_df<-twListToDF(tw_POTUS_search)
+head(tw_POTUS_search_df)
+tw_trump_search_df<-twListToDF(tw_trump_search)
+head(tw_trump_search_df)
+
+```
+Following Function will remove links,retweet entries,hashtags,@people,punctuations, digits and spaces
+
+```{r clean function}
+cleantweets<- function(tweet){
+  # Clean the tweet for sentiment analysis
+  # remove html links, which are not required for sentiment analysis
+  tweet = gsub("(f|ht)(tp)(s?)(://)(.*)[.|/](.*)", " ", tweet)
+  # First we will remove retweet entities from  the stored tweets (text)
+  tweet = gsub("(RT|via)((?:\\b\\W*@\\w+)+)", " ", tweet)
+  # Then remove all "#Hashtag"
+  tweet = gsub("#\\w+", " ", tweet)
+  # Then remove all "@people"
+  tweet = gsub("@\\w+", " ", tweet)
+  # Then remove all the punctuation
+  tweet = gsub("[[:punct:]]", " ", tweet)
+  # Then remove numbers, we need only text for analytics
+  tweet = gsub("[[:digit:]]", " ", tweet)
+  # finally, we remove unnecessary spaces (white spaces, tabs etc)
+  tweet = gsub("[ \t]{2,}", " ", tweet)
+  tweet = gsub("^\\s+|\\s+$", "", tweet)
+}
+```
+
+In the next function we will use above function and remove na's too. 
+
+```{r clean and na remove function}
+clean_tweets_and_na<- function(Tweets) {
+  TweetsCleaned = sapply(Tweets, cleantweets)
+  # Remove the "NA" tweets from this tweet list
+  TweetsCleaned = TweetsCleaned[!is.na(TweetsCleaned)]
+  names(TweetsCleaned) = NULL
+  # Remove the repetitive tweets from this tweet list
+  TweetsCleaned = unique(TweetsCleaned)
+  TweetsCleaned }
+```
+
+
+
+let us first get text field from the tweets collected :
+
+```{r extract text}
+tw_trump_search_txt<-sapply(tw_trump_search,function(x) x$getText())
+tw_POTUS_search_txt<-sapply(tw_POTUS_search,function(x) x$getText())
+
+```
+
+
+let's apply the created function to clean text:
+```{r}
+tw_trump_search_txt_cln1<-clean_tweets_and_na(tw_trump_search_txt)
+tw_POTUS_search_txt_cln1<-clean_tweets_and_na(tw_POTUS_search_txt)
+```
+
+Let's create the corpus now:
+
+```{r}
+tw_trump_search_corpus<-Corpus(VectorSource(tw_trump_search_txt_cln1))
+tw_POTUS_search_corpus<-Corpus(VectorSource(tw_POTUS_search_txt_cln1))
+
+```
+
+Let's first get the stopwords before we start cleaning the corpus:
+```{r}
+tw_stopwords <-stopwords("english")
+
+```
+
+Let's define a function to create a cleaner corpus with lowercase, removed punctuations, removed numbers and removed stopwords:
+
+```{r}
+cleancorpus<-function(incorpus){
+  incorpus <- tm_map(incorpus, tolower)
+  incorpus <- tm_map(incorpus, removePunctuation)
+  incorpus <- tm_map(incorpus, removeNumbers)
+  incorpus <- tm_map(incorpus, removeWords, tw_stopwords)
+}
+```
+
+Clean the corpus using the function:
+```{r}
+tw_trump_search_corpus<-cleancorpus(tw_trump_search_corpus)
+tw_POTUS_search_corpus<-cleancorpus(tw_POTUS_search_corpus)
+inspect(tw_trump_search_corpus)
+inspect(tw_POTUS_search_corpus)
+```
+
+# Create a Document Term Matrix
+tweetDTM<-DocumentTermMatrix(tweetCorpus,list(termFreq=1))
+inspect(tweetDTM)
+saveRDS(tweetDTM,"./tweetDTM")
+
+Let's create the Document Term Matrices now for both the corpuses:
+```{r}
+tw_trump_DTM<-DocumentTermMatrix(tw_trump_search_corpus,list(termFreq=1))
+inspect(tw_trump_DTM)
+saveRDS(tw_trump_DTM,"./tw_trump_DTM")
+tw_POTUS_DTM<-DocumentTermMatrix(tw_POTUS_search_corpus,list(termFreq=1))
+inspect(tw_POTUS_DTM)
+saveRDS(tw_POTUS_DTM,"./tw_POTUS_DTM")
+
+```
+
+Let's check the frequent terms for "trump" and "POTUS"
+
+```{r}
+tw_trump_freqterms<-findFreqTerms(tw_trump_DTM,lowfreq = 10)
+tw_POTUS_freqterms<-findFreqTerms(tw_POTUS_DTM,lowfreq = 10)
+
+```
+
+finding the term frequencies:
+
+term.freq<-colSums(as.matrix(tweetDTM))
+term.freq.df<-data.frame(term = names(term.freq),freq=term.freq)
+
+```{r}
+tw_trump_termfreq<-colSums(as.matrix(tw_trump_DTM))
+tw_trump_termfreq_df<-data.frame(term = names(tw_trump_termfreq),freq=tw_trump_termfreq)
+tw_POTUS_termfreq<-colSums(as.matrix(tw_POTUS_DTM))
+tw_POTUS_termfreq_df<-data.frame(term = names(tw_POTUS_termfreq),freq=tw_POTUS_termfreq)
+
+```
+
+
+
+
+
+
