@@ -3,9 +3,9 @@ title: "Twitter Analysis Technical Report"
 author: "vivek"
 date: "July 27, 2017"
 output:
-  html_document: default
-  pdf_document: default
   word_document: default
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -71,6 +71,7 @@ II-a.
 Collection of last 5000 tweets about "trump"
 ```{r trump search}
 tw_trump_search <- searchTwitter(searchString = "trump",n = 5000,lang = "en")
+length(tw_trump_search)
 head(tw_trump_search)
 ```
 
@@ -78,6 +79,7 @@ II-b.
 Collection of last 5000 tweets from handle "POTUS"
 ```{r potus search}
 tw_POTUS_search <- searchTwitter(searchString = "@potus",n = 5000,lang = "en")
+length(tw_POTUS_search)
 head(tw_POTUS_search)
 tail(tw_POTUS_search)
 ```
@@ -93,14 +95,21 @@ tw_trump_search<-strip_retweets(tw_trump_search, strip_manual=TRUE, strip_mt=TRU
 tw_POTUS_search<-strip_retweets(tw_POTUS_search, strip_manual=TRUE, strip_mt=TRUE)
 
 ```
+let's check the length of tweets lists now , it will give us an idea that how many real tweets are there after retweets are striped away
+```{r}
+length(tw_trump_search)
+length(tw_POTUS_search)
+```
 
 Let's create dataframes of the tweets :
 
 ```{r}
 tw_POTUS_search_df<-twListToDF(tw_POTUS_search)
 head(tw_POTUS_search_df)
+str(tw_POTUS_search_df)
 tw_trump_search_df<-twListToDF(tw_trump_search)
 head(tw_trump_search_df)
+str(tw_trump_search_df)
 
 ```
 Following Function will remove links,retweet entries,hashtags,@people,punctuations, digits and spaces
@@ -190,10 +199,6 @@ inspect(tw_POTUS_search_corpus)
 ```
 
 # Create a Document Term Matrix
-tweetDTM<-DocumentTermMatrix(tweetCorpus,list(termFreq=1))
-inspect(tweetDTM)
-saveRDS(tweetDTM,"./tweetDTM")
-
 Let's create the Document Term Matrices now for both the corpuses:
 ```{r}
 tw_trump_DTM<-DocumentTermMatrix(tw_trump_search_corpus,list(termFreq=1))
@@ -212,11 +217,16 @@ tw_trump_freqterms<-findFreqTerms(tw_trump_DTM,lowfreq = 10)
 tw_POTUS_freqterms<-findFreqTerms(tw_POTUS_DTM,lowfreq = 10)
 
 ```
+let's examine the frequent terms:
+```{r}
+tw_trump_freqterms
+tw_POTUS_freqterms
+
+```
+
 
 finding the term frequencies:
 
-term.freq<-colSums(as.matrix(tweetDTM))
-term.freq.df<-data.frame(term = names(term.freq),freq=term.freq)
 
 ```{r}
 tw_trump_termfreq<-colSums(as.matrix(tw_trump_DTM))
@@ -226,8 +236,51 @@ tw_POTUS_termfreq_df<-data.frame(term = names(tw_POTUS_termfreq),freq=tw_POTUS_t
 
 ```
 
+we can examine the frequent terms and their frequency for "trump " keyword:
+```{r}
+tw_trump_termfreq_df
+```
+we can examine the frequent terms and their frequency for tweets from POTUS:
+```{r}
+tw_POTUS_termfreq_df
 
+```
 
+At this stage we are interested in looking into Word Cloud for the keyword "trump" :
 
+```{r,warning=FALSE}
+wordcloud(words = tw_trump_freqterms,
+          freq = tw_trump_termfreq_df[tw_trump_termfreq_df$term %in% tw_trump_freqterms,2],
+            colors = T,random.color = T,scale = c(10,0.5))
+```
 
+Similarly, Word Cloud for the user POTUS :
+
+```{r}
+wordcloud(words = tw_POTUS_freqterms,
+          freq = tw_POTUS_termfreq_df[tw_POTUS_termfreq_df$term %in% tw_POTUS_freqterms,2],
+          colors = T,random.color = T)
+```
+
+We want to look into the comparison cloud of both the groups i.e. are they using different terms in their communication :
+
+```{r}
+
+tweets_trump<-paste(tw_trump_search_txt_cln1, collapse=" ")
+tweets_POTUS<-paste(tw_POTUS_search_txt_cln1, collapse=" ")
+total<-c(tweets_trump,tweets_POTUS)
+total_corpus<-Corpus(x = VectorSource(total))
+total_tdm<-TermDocumentMatrix(total_corpus)
+total_tdm_matrix<-as.matrix(total_tdm)
+colnames(total_tdm_matrix)<-c("trump","POTUS")
+comparison.cloud(total_tdm_matrix,random.order = FALSE,colors = c("red","blue"),title.size = 1.5,max.words = 500)
+
+```
+
+It is good to look at the commonality cloud to find out the terms that common to both the groups :
+
+```{r}
+
+commonality.cloud(total_tdm_matrix,max.words = 500)
+```
 
