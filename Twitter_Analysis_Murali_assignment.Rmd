@@ -373,7 +373,7 @@ hillary_token <- hillary %>%
 
 #Convert Id to numeric
 ```{r}
-#hillary_token$id = as.numeric(hillary_token$id)
+hillary_token$id = as.numeric(hillary_token$id)
 ```
 
 
@@ -399,6 +399,8 @@ obama_token <- obama %>%
   unnest_tokens(word, text, token = "regex", pattern = reg) %>%
   filter(!word %in% stop_words$word,
          str_detect(word, "[a-z]"))
+
+obama_token$id = as.numeric(obama_token$id)
 
 #Compare Trump and Obama
 bind_rows(Trump = tweet_words, Obama = obama_token, .id = "person") %>%
