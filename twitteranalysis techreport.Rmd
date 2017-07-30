@@ -16,19 +16,21 @@ Aim: We intend to search for last 5000 tweets , which have referred in one way o
 
 we will load the packages required for this analysis as these have already been installed on local machine.
 
-```{r load packages}
+```{r load packages,warning=FALSE}
 library(twitteR)
 library(tm)
 library(tidytext)
+library(plyr)
 library(ggplot2)
 library(stringi)
 library(stringr)
 library(wordcloud)
 library(rebus)
+library(dplyr)
 ```
 we will now create a connection to twitter :
-```{r connection to twitter}
-source("c:\\vik\\r\\r\\TwitterAnalysis\\twitterconnection.r")
+```{r connection to twitter,warning=FALSE}
+source("C:\\Users\\vivek\\Documents\\dsla1\\twitterproject\\07.28.2017\\connectiontwitter.R")
 
 ```
 
@@ -36,13 +38,13 @@ Our Analysis will focus on the following :
 
 I. Analysis of the user i.e. we will analyse the twitter handle "POTUS"" used by president Trump initially for when was the acoount setup, how many tweets has he sent as of now, how many retweets has he done, how many friends he has, which locations are the tweets done from and other user related data analysis :
 
-```{r}
+```{r,warning=FALSE}
 tw_user_potus<-getUser(user = "POTUS")
 
 ```
  Following are few of the fields available to use:
  
-```{r}
+```{r,warning=FALSE}
 class(tw_user_potus)
 str(tw_user_potus)
 
@@ -57,7 +59,7 @@ Following us the little insight that we got from the user account information :
 5. Account was Created on  : `r tw_user_potus$getCreated()`
 6. favorite counts are  : `r tw_user_potus$favoritesCount`
 7. Last Status is : : 
-```{r last status}
+```{r last status,warning=FALSE}
 tw_user_potus$lastStatus
 ```
 8. Last Status is Retweeted : `r tw_user_potus$lastStatus$retweetCount` times
@@ -69,7 +71,7 @@ Our second task is to get the insight into two kinds of twitter messages. First 
 
 II-a. 
 Collection of last 5000 tweets about "trump"
-```{r trump search}
+```{r trump search,warning=FALSE}
 tw_trump_search <- searchTwitter(searchString = "trump",n = 5000,lang = "en")
 length(tw_trump_search)
 head(tw_trump_search)
@@ -77,7 +79,7 @@ head(tw_trump_search)
 
 II-b. 
 Collection of last 5000 tweets from handle "POTUS"
-```{r potus search}
+```{r potus search,warning=FALSE}
 tw_POTUS_search <- searchTwitter(searchString = "@potus",n = 5000,lang = "en")
 length(tw_POTUS_search)
 head(tw_POTUS_search)
@@ -90,20 +92,20 @@ cleantweets function:
 Let us first strip the retweets(both manual and modified retweets are removed):
 
 
-```{r}
+```{r,warning=FALSE}
 tw_trump_search<-strip_retweets(tw_trump_search, strip_manual=TRUE, strip_mt=TRUE)
 tw_POTUS_search<-strip_retweets(tw_POTUS_search, strip_manual=TRUE, strip_mt=TRUE)
 
 ```
 let's check the length of tweets lists now , it will give us an idea that how many real tweets are there after retweets are striped away
-```{r}
+```{r,warning=FALSE}
 length(tw_trump_search)
 length(tw_POTUS_search)
 ```
 
 Let's create dataframes of the tweets :
 
-```{r}
+```{r,warning=FALSE}
 tw_POTUS_search_df<-twListToDF(tw_POTUS_search)
 head(tw_POTUS_search_df)
 str(tw_POTUS_search_df)
@@ -114,7 +116,7 @@ str(tw_trump_search_df)
 ```
 Following Function will remove links,retweet entries,hashtags,@people,punctuations, digits and spaces
 
-```{r clean function}
+```{r clean function,warning=FALSE}
 cleantweets<- function(tweet){
   # Clean the tweet for sentiment analysis
   # remove html links, which are not required for sentiment analysis
@@ -137,7 +139,7 @@ cleantweets<- function(tweet){
 
 In the next function we will use above function and remove na's too. 
 
-```{r clean and na remove function}
+```{r clean and na remove function , warning=FALSE}
 clean_tweets_and_na<- function(Tweets) {
   TweetsCleaned = sapply(Tweets, cleantweets)
   # Remove the "NA" tweets from this tweet list
@@ -152,36 +154,42 @@ clean_tweets_and_na<- function(Tweets) {
 
 let us first get text field from the tweets collected :
 
-```{r extract text}
+```{r extract text , warning=FALSE}
 tw_trump_search_txt<-sapply(tw_trump_search,function(x) x$getText())
 tw_POTUS_search_txt<-sapply(tw_POTUS_search,function(x) x$getText())
 
+
+```
+To remove the icons/emoji's etc :
+
+```{r,warning=FALSE}
+tw_trump_search_txt<-sapply(tw_trump_search_txt,function(x) iconv(x ,to="UTF-8",sub = "" ))
+tw_POTUS_search_txt<-sapply(tw_POTUS_search_txt,function(x) iconv(x ,to="UTF-8",sub = "" ))
 ```
 
-
 let's apply the created function to clean text:
-```{r}
+```{r,warning=FALSE}
 tw_trump_search_txt_cln1<-clean_tweets_and_na(tw_trump_search_txt)
 tw_POTUS_search_txt_cln1<-clean_tweets_and_na(tw_POTUS_search_txt)
 ```
 
 Let's create the corpus now:
 
-```{r}
+```{r,warning=FALSE}
 tw_trump_search_corpus<-Corpus(VectorSource(tw_trump_search_txt_cln1))
 tw_POTUS_search_corpus<-Corpus(VectorSource(tw_POTUS_search_txt_cln1))
 
 ```
 
 Let's first get the stopwords before we start cleaning the corpus:
-```{r}
+```{r,warning=FALSE}
 tw_stopwords <-stopwords("english")
 
 ```
 
 Let's define a function to create a cleaner corpus with lowercase, removed punctuations, removed numbers and removed stopwords:
 
-```{r}
+```{r,warning=FALSE}
 cleancorpus<-function(incorpus){
   incorpus <- tm_map(incorpus, tolower)
   incorpus <- tm_map(incorpus, removePunctuation)
@@ -191,7 +199,7 @@ cleancorpus<-function(incorpus){
 ```
 
 Clean the corpus using the function:
-```{r}
+```{r,warning=FALSE}
 tw_trump_search_corpus<-cleancorpus(tw_trump_search_corpus)
 tw_POTUS_search_corpus<-cleancorpus(tw_POTUS_search_corpus)
 inspect(tw_trump_search_corpus)
@@ -200,7 +208,7 @@ inspect(tw_POTUS_search_corpus)
 
 # Create a Document Term Matrix
 Let's create the Document Term Matrices now for both the corpuses:
-```{r}
+```{r,warning=FALSE}
 tw_trump_DTM<-DocumentTermMatrix(tw_trump_search_corpus,list(termFreq=1))
 inspect(tw_trump_DTM)
 saveRDS(tw_trump_DTM,"./tw_trump_DTM")
@@ -212,13 +220,13 @@ saveRDS(tw_POTUS_DTM,"./tw_POTUS_DTM")
 
 Let's check the frequent terms for "trump" and "POTUS"
 
-```{r}
+```{r,warning=FALSE}
 tw_trump_freqterms<-findFreqTerms(tw_trump_DTM,lowfreq = 10)
 tw_POTUS_freqterms<-findFreqTerms(tw_POTUS_DTM,lowfreq = 10)
 
 ```
 let's examine the frequent terms:
-```{r}
+```{r,warning=FALSE}
 tw_trump_freqterms
 tw_POTUS_freqterms
 
@@ -228,7 +236,7 @@ tw_POTUS_freqterms
 finding the term frequencies:
 
 
-```{r}
+```{r,warning=FALSE}
 tw_trump_termfreq<-colSums(as.matrix(tw_trump_DTM))
 tw_trump_termfreq_df<-data.frame(term = names(tw_trump_termfreq),freq=tw_trump_termfreq)
 tw_POTUS_termfreq<-colSums(as.matrix(tw_POTUS_DTM))
@@ -237,11 +245,11 @@ tw_POTUS_termfreq_df<-data.frame(term = names(tw_POTUS_termfreq),freq=tw_POTUS_t
 ```
 
 we can examine the frequent terms and their frequency for "trump " keyword:
-```{r}
+```{r,warning=FALSE}
 tw_trump_termfreq_df
 ```
 we can examine the frequent terms and their frequency for tweets from POTUS:
-```{r}
+```{r,warning=FALSE}
 tw_POTUS_termfreq_df
 
 ```
@@ -256,7 +264,7 @@ wordcloud(words = tw_trump_freqterms,
 
 Similarly, Word Cloud for the user POTUS :
 
-```{r}
+```{r,warning=FALSE}
 wordcloud(words = tw_POTUS_freqterms,
           freq = tw_POTUS_termfreq_df[tw_POTUS_termfreq_df$term %in% tw_POTUS_freqterms,2],
           colors = T,random.color = T)
@@ -264,7 +272,7 @@ wordcloud(words = tw_POTUS_freqterms,
 
 We want to look into the comparison cloud of both the groups i.e. are they using different terms in their communication :
 
-```{r}
+```{r,warning=FALSE}
 
 tweets_trump<-paste(tw_trump_search_txt_cln1, collapse=" ")
 tweets_POTUS<-paste(tw_POTUS_search_txt_cln1, collapse=" ")
@@ -279,8 +287,185 @@ comparison.cloud(total_tdm_matrix,random.order = FALSE,colors = c("red","blue"),
 
 It is good to look at the commonality cloud to find out the terms that common to both the groups :
 
-```{r}
+```{r,warning=FALSE}
 
 commonality.cloud(total_tdm_matrix,max.words = 500)
+```
+
+##Sentiment Analysis :
+
+We will now focus on the sentimental analysis of the data collected from the twitter feeds using keywword " trump" and from twitter handle "POTUS"
+
+1. we will load the libraries required first:
+
+```{r,warning=FALSE}
+library(twitteR)
+library(stringr)
+library(ggplot2)
+```
+
+2. We will create the scoring function first that will be used to score the sentiment of the tweet. It is based on splitting the tweet in words and then assigning polarity to the words. final polarity of the tweet is the sum of polarities of the words in tweet
+
+```{r,warning=FALSE}
+sentiment_score = function(sentences, pos.words, neg.words, .progress='none')
+{  scores = laply(sentences,
+                 function(sentence, pos.words, neg.words)
+                 {
+                   # remove punctuation
+                   sentence = gsub("[[:punct:]]", "", sentence)
+                   # remove control characters
+                   sentence = gsub("[[:cntrl:]]", "", sentence)
+                   # remove digits?
+                   sentence = gsub('\\d+', '', sentence)
+                   
+                   # define error handling function when trying tolower
+                   tryTolower = function(x)
+                   {
+                     # create missing value
+                     y = NA
+                     # tryCatch error
+                     try_error = tryCatch(tolower(x), error=function(e) e)
+                     # if not an error
+                     if (!inherits(try_error, "error"))
+                       y = tolower(x)
+                     # result
+                     return(y)
+                   }
+                   # use tryTolower with sapply 
+                   sentence = sapply(sentence, tryTolower)
+                   
+                   # split sentence into words with str_split (stringr package)
+                   word.list = str_split(sentence, "\\s+")
+                   words = unlist(word.list)
+                   
+                   # compare words to the dictionaries of positive & negative terms
+                   pos.matches = match(words, pos.words)
+                   neg.matches = match(words, neg.words)
+                   
+                   # get the position of the matched term or NA
+                   # we just want a TRUE/FALSE
+                   pos.matches = !is.na(pos.matches)
+                   neg.matches = !is.na(neg.matches)
+                   
+                   # final score
+                   score = sum(pos.matches) - sum(neg.matches)
+                   return(score)
+                 }, pos.words, neg.words, .progress=.progress )
+  
+  # data frame with scores for each sentence
+  scores.df = data.frame(text=sentences, score=scores)
+  return(scores.df)
+}
+```
+
+
+3. We will import the positive words as well as negative words against which the polarity of tweets will be decided. these lists are present in the working directory of the project , so will be imported without giving the full path to files:
+
+
+```{r,warning=FALSE}
+pos = readLines("positive_words.txt")
+neg = readLines("negative_words.txt")
+```
+
+4. we already have tweets from " trump" and " @POTUS" and cleaned also by running the functions in the first part( exploration of data) of the project. We will analyse the same data to futher extend the  understanding of data:
+
+```{r,warning=FALSE}
+no_of_tweets<-c(length(tw_trump_search_txt_cln1), length(tw_POTUS_search_txt_cln1))
+names(no_of_tweets)<-c("trump","POTUS")
+no_of_tweets
+```
+
+5. we will join the texts now to make a single collection :
+
+```{r,warning=FALSE}
+#5 join texts
+trump_POTUS_alltweets = c(tw_trump_search_txt_cln1,tw_POTUS_search_txt_cln1)
+length(trump_POTUS_alltweets)
+```
+
+
+6. We will now apply the fuction created earlier namely sentiment_score , will check the resultant data for structure and no. of rows
+
+```{r,warning=FALSE}
+
+trump_POTUS_alltweets_score<-sentiment_score(trump_POTUS_alltweets,pos,neg,.progress = 'text')
+head(trump_POTUS_alltweets_score)
+nrow(trump_POTUS_alltweets_score)
+```
+
+7. We will add another variable to the  data frame now which will identify the source of tweet i.e. either " trump" or "POTUS"
+
+```{r,warning=FALSE}
+
+trump_POTUS_alltweets_score$source = factor(rep(c("trump", "POTUS"), no_of_tweets))
+head(trump_POTUS_alltweets_score)
+tail(trump_POTUS_alltweets_score)
+table(trump_POTUS_alltweets_score$source,trump_POTUS_alltweets_score$score)
+trump_POTUS_alltweets_score$very_positive = as.numeric(trump_POTUS_alltweets_score$score >= 4)
+trump_POTUS_alltweets_score$positive = as.numeric(trump_POTUS_alltweets_score$score >= 0 & trump_POTUS_alltweets_score$score < 4)      
+trump_POTUS_alltweets_score$neutral = as.numeric(trump_POTUS_alltweets_score$score ==0)
+trump_POTUS_alltweets_score$negative = as.numeric(trump_POTUS_alltweets_score$score < 0 & trump_POTUS_alltweets_score$score > -4)
+trump_POTUS_alltweets_score$very_negative = as.numeric(trump_POTUS_alltweets_score$score <= -4)
+head(trump_POTUS_alltweets_score)
+```
+
+8. Now we have categorized the tweets in very positives ,positive,neutral,negative and very negative, we will calculate the global positivity score to figure out the overall positivity:
+
+```{r,warning=FALSE}
+
+trump_POTUS_alltweets_emotion_verypos<-sum(trump_POTUS_alltweets_score$very_positive)->s1
+trump_POTUS_alltweets_emotion_pos<-sum(trump_POTUS_alltweets_score$positive)->s2
+trump_POTUS_alltweets_emotion_neutral<-sum(trump_POTUS_alltweets_score$neutral)->s3
+trump_POTUS_alltweets_emotion_neg<-sum(trump_POTUS_alltweets_score$negative)->s4
+trump_POTUS_alltweets_emotion_veryneg<-sum(trump_POTUS_alltweets_score$very_negative)->s5
+global_pos_score<-(s1+s2)/(s1+s2+s3+s4+s5)
+global_pos_score
+str(trump_POTUS_alltweets_score)
+```
+
+9. we will now check the overall spread of positivity or negativity amoung these two sources and compare their polarity sourcewise :
+
+```{r,warning=FALSE}
+
+cols <- c("#7CAE00","#C77CFF")
+names(cols) <- c("trump", "POTUS")
+
+# boxplot
+ggplot(trump_POTUS_alltweets_score, aes(x=source, y=score, group=source)) +
+  geom_boxplot(aes(fill=source)) +
+  scale_fill_manual(values=cols) +
+  geom_jitter(colour="gray40",
+              position=position_jitter(width=0.2), alpha=0.3) +ggtitle(label ="Sentiment scores in twitter feeds from trump and POTUS")
+
+```
+
+
+10. Let's check the barplots of average score :
+
+```{r,warning=FALSE}
+trump_POTUS_alltweets_score_meanscores <- tapply(trump_POTUS_alltweets_score$score, trump_POTUS_alltweets_score$source, mean)
+trump_POTUS_alltweets_score_meanscores_df <- data.frame(feed=names(trump_POTUS_alltweets_score_meanscores), meanscore=trump_POTUS_alltweets_score_meanscores)
+trump_POTUS_alltweets_score_meanscores_df$feed<-reorder(trump_POTUS_alltweets_score_meanscores_df$feed,trump_POTUS_alltweets_score_meanscores_df$meanscore)
+
+ggplot(trump_POTUS_alltweets_score_meanscores_df, aes(x=feed,y=meanscore)) +
+  geom_bar(data=trump_POTUS_alltweets_score_meanscores_df, aes(x=feed, fill=feed),stat="identity") +
+  scale_fill_manual(values=cols[order(trump_POTUS_alltweets_score_meanscores_df$meanscore)]) +
+  ggtitle(label ="Average Sentiment Score")
+```
+
+11. It is pertinent at this stage to check the difference in the meanscore of these two sources to find the correctness of our analysis :
+
+```{r,warning=FALSE}
+meanscores_compare<-trump_POTUS_alltweets_score%>%group_by(source)%>%summarise(meanscore=mean(score),mean_verypos=mean(very_positive),mean_pos=mean(positive),mean_neutral=mean(neutral),mean_neg=mean(negative),mean_veryneg=mean(very_negative))
+meanscores_compare<-as.data.frame(meanscores_compare)
+sumscores_compare<-trump_POTUS_alltweets_score%>%group_by(source)%>%summarise(sumscore=sum(score),sum_vp=sum(very_positive),sum_p=sum(positive),sum_n=sum(neutral),sum_neg=sum(negative),sum_vn=sum(very_negative))
+sumscores_compare<-as.data.frame(sumscores_compare)
+library(tidyr)
+library(gridExtra)
+sumscore_compare_long<-gather(data = sumscores_compare,key = key,value = values,-source)
+ggplot(sumscore_compare_long,aes(x=source,y=values))+geom_histogram(stat="identity",aes(fill=source))+facet_grid(~key)
+p1<-sumscore_compare_long%>%filter(source=="trump")%>%ggplot(aes(x=key,y=values))+geom_histogram(stat="identity",aes(fill=key))+ggtitle(label = "categorised emotions from twitterfeeds with trump")
+p2<-sumscore_compare_long%>%filter(source=="POTUS")%>%ggplot(aes(x=key,y=values))+geom_histogram(stat="identity",aes(fill=key))+ggtitle(label = "categorised emotions from twitterfeeds with POTUS")
+grid.arrange(p1,p2,ncol=1,nrow=2)
 ```
 

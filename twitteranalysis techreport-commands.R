@@ -8,7 +8,7 @@ library(stringr)
 library(wordcloud)
 library(rebus)
 # connection to twitter
-source("c:\\vik\\r\\r\\TwitterAnalysis\\twitterconnection.r")
+source("C:\\Users\\vivek\\Documents\\dsla1\\twitterproject\\07.28.2017\\connectiontwitter.R")
 # user info profile
 tw_user_potus<-getUser(user = "POTUS")
 # check the profile structure
@@ -75,6 +75,9 @@ clean_tweets_and_na<- function(Tweets) {
 # get text
 tw_trump_search_txt<-sapply(tw_trump_search,function(x) x$getText())
 tw_POTUS_search_txt<-sapply(tw_POTUS_search,function(x) x$getText())
+# to remove emoji/icons for mac use "UTF-8-MAC"
+tw_trump_search_txt<-sapply(tw_trump_search_txt,function(x) iconv(x ,to="UTF-8",sub = "" ))
+tw_POTUS_search_txt<-sapply(tw_POTUS_search_txt,function(x) iconv(x ,to="UTF-8",sub = "" ))
 # clean text with functions
 tw_trump_search_txt_cln1<-clean_tweets_and_na(tw_trump_search_txt)
 tw_POTUS_search_txt_cln1<-clean_tweets_and_na(tw_POTUS_search_txt)
@@ -121,7 +124,6 @@ wordcloud(words = tw_trump_freqterms,
 wordcloud(words = tw_POTUS_freqterms,
           freq = tw_POTUS_termfreq_df[tw_POTUS_termfreq_df$term %in% tw_POTUS_freqterms,2],
           colors = T,random.color = T,scale = c(10,0.5))
-#########################################################################################
 #comparison cloud
 
 tweets_trump<-paste(tw_trump_search_txt_cln1, collapse=" ")
@@ -136,3 +138,5 @@ comparison.cloud(total_tdm_matrix,random.order = FALSE,colors = c("red","blue"),
 
 #commonality cloud
 commonality.cloud(total_tdm_matrix,max.words = 500,title.size=1.5)
+
+
